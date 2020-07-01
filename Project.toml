@@ -1,0 +1,4 @@
+name = "PointBasedValueIteration"
+uuid = "835c131e-675f-4498-8e2c-c054c75556e1"
+authors = ["Dominik Straub <dstraub93@gmail.com>"]
+version = "0.1.0"
