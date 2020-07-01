@@ -7,7 +7,7 @@ using .PointBasedValueIteration
 
 pomdp = TigerPOMDP()
 
-solver = PBVI(100, 100)
+solver = PBVI(n_belief_points=100, max_iterations=100)
 policy = solve(solver, pomdp)
 
 sim = RolloutSimulator(max_steps=100)

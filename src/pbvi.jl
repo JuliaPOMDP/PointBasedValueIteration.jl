@@ -8,6 +8,14 @@ mutable struct PBVI <: Solver
 end
 
 """
+    PBVI(; max_iterations, tolerance)
+Initialize a point-based value iteration solver with default `n_belief_points` and `max_iterations`.
+"""
+function PBVI(;n_belief_points::Int64=100, max_iterations::Int64=100)
+    return PBVI(n_belief_points, max_iterations)
+end
+
+"""
     AlphaVec
 Alpha vector type of paired vector and action.
 """
@@ -75,4 +83,34 @@ function solve(solver::PBVI, pomdp::POMDP)
 
     acts = [alphavec.action for alphavec in res]
     return AlphaVectorPolicy(pomdp, Γ, acts)
+end
+
+
+@POMDP_require solve(solver::PBVI, pomdp::POMDP) begin
+    P = typeof(pomdp)
+    S = state_type(P)
+    A = action_type(P)
+    O = observation_type(P)
+    @req discount(::P) # discount factor
+    @subreq ordered_states(pomdp)
+    @subreq ordered_actions(pomdp)
+    @subreq ordered_observations(pomdp)
+    @req transition(::P,::S,::A)
+    @req reward(::P,::S,::A)
+    ss = states(pomdp)
+    as = actions(pomdp)
+    os = observations(pomdp)
+    @req length(::typeof(ss))
+    @req iterator(::typeof(as))
+    @req iterator(::typeof(ss))
+    @req iterator(::typeof(os))
+    s = first(iterator(ss))
+    a = first(iterator(as))
+    dist = transition(pomdp, s, a)
+    D = typeof(dist)
+    @req pdf(::D,::S)
+
+    odist = observation(pomdp, a, s)
+    OD = typeof(odist)
+    @req pdf(::OD,::O)
 end
