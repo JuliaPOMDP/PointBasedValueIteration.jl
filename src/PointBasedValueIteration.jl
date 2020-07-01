@@ -6,7 +6,7 @@ using POMDPModelTools
 using BeliefUpdaters
 using LinearAlgebra
 
-import POMDPs: Solver
+import POMDPs: Solver, solve
 import Base: ==, hash
 
 

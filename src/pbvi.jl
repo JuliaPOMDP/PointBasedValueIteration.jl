@@ -56,7 +56,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
     return alphavec
 end
 
-function POMDPs.solve(solver::PBVI, pomdp::POMDP)
+function solve(solver::PBVI, pomdp::POMDP)
     k_max = solver.max_iterations
     s = 1 / solver.n_belief_points
     B = [DiscreteBelief(pomdp, [b, 1-b]) for b in 0:s:1]
