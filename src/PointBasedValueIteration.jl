@@ -3,6 +3,7 @@ module PointBasedValueIteration
 using POMDPs
 using POMDPPolicies
 using POMDPModelTools
+using POMDPLinter
 using BeliefUpdaters
 using LinearAlgebra
 
