@@ -1,16 +1,28 @@
+using Test
 using POMDPModels
 using POMDPSimulators
 using POMDPs
-# using IncrementalPruning
+using SARSOP
+using BeliefUpdaters
 
-# include("../src/PointBasedValueIteration.jl")
 using PointBasedValueIteration
 
-pomdp = TigerPOMDP()
+@testset "Comparison with SARSOP" begin
+    pomdps = [TigerPOMDP(), BabyPOMDP()]
 
-solver = PBVI(n_belief_points=100, max_iterations=100)
-policy = solve(solver, pomdp)
+    for pomdp in pomdps
+        solver = PBVI(n_belief_points=200, max_iterations=500)
+        policy = solve(solver, pomdp)
 
-sim = RolloutSimulator(max_steps=100)
+        sarsop = SARSOPSolver()
+        sarsop_policy = solve(sarsop, pomdp)
 
-rs_pbvi = [simulate(sim, pomdp, policy) for _ in 1:1000]
+        B = [DiscreteBelief(pomdp, [b, 1-b]) for b in 0:0.01:1]
+
+        pbvi_vals = [value(policy, b) for b in B]
+        sarsop_vals = [value(sarsop_policy, b) for b in B]
+
+        @test isapprox(sarsop_vals, pbvi_vals, rtol=0.05)
+    end
+
+end
