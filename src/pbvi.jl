@@ -49,8 +49,8 @@ function backup_belief(pomdp::POMDP, Γ, b)
             push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
         end
 
-        αa = [reward(pomdp, s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), s′) * pdf(observation(pomdp, a, s′), o) * Γao[i][j]
-                                  for (j, s′) in enumerate(S))
+        αa = [reward(pomdp, s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
+                                  for (j, sp) in enumerate(S))
                               for (i, o) in enumerate(O))
               for s in S]
 
@@ -86,7 +86,7 @@ function solve(solver::PBVI, pomdp::POMDP)
 end
 
 
-@POMDP_require solve(solver::PBVI, pomdp::POMDP) begin
+@POMDPLinter.POMDP_require solve(solver::PBVI, pomdp::POMDP) begin
     P = typeof(pomdp)
     S = state_type(P)
     A = action_type(P)
