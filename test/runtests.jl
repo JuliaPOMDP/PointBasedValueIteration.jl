@@ -1,9 +1,10 @@
 using POMDPModels
 using POMDPSimulators
 using POMDPs
+# using IncrementalPruning
 
-include("../src/PointBasedValueIteration.jl")
-using .PointBasedValueIteration
+# include("../src/PointBasedValueIteration.jl")
+using PointBasedValueIteration
 
 pomdp = TigerPOMDP()
 
