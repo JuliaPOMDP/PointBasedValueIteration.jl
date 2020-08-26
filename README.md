@@ -19,7 +19,3 @@ The function `solve` returns an `AlphaVectorPolicy` as defined in [POMDPPolicies
 
 ## References
 - Pineau, J., Gordon, G., & Thrun, S. (2003, August). Point-based value iteration: An anytime algorithm for POMDPs. In IJCAI (Vol. 3, pp. 1025-1032).
-
-## TODO:
-- [ ] compare the alpha vectors to the output of SARSOP or IncrementalPruning by running `value(policy, b)` for many random choices of b for both a policy from SARSOP/IncrementalPruning and one from PBVI on several different problems
-- [ ] Documentation (example) in the README
