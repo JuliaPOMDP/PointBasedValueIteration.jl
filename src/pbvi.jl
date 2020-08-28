@@ -38,6 +38,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
     A = ordered_actions(pomdp)
     O = ordered_observations(pomdp)
     γ = discount(pomdp)
+    r = StateActionReward(pomdp)
 
     Γa = Vector{Float64}[]
 
@@ -49,7 +50,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
             push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
         end
 
-        αa = [reward(pomdp, s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
+        αa = [r(s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
                                   for (j, sp) in enumerate(S))
                               for (i, o) in enumerate(O))
               for s in S]
@@ -71,8 +72,9 @@ function solve(solver::PBVI, pomdp::POMDP)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     γ = discount(pomdp)
+    r = StateActionReward(pomdp)
 
-    α_init = 1 / (1 - γ) * maximum(minimum(reward(pomdp, s, a) for s in S) for a in A)
+    α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
     res = nothing
 
