@@ -1,6 +1,9 @@
 # Point-based value iteration
 
 [![Build status](https://travis-ci.com/dominikstrb/PointBasedValueIteration.jl.svg?branch=master)](https://travis-ci.com/github/dominikstrb/PointBasedValueIteration.jl)
+[![Coverage Status](https://coveralls.io/repos/github/dominikstrb/PointBasedValueIteration.jl/badge.svg?branch=master)](https://coveralls.io/github/dominikstrb/PointBasedValueIteration.jl?branch=master)
+[![codecov](https://codecov.io/gh/dominikstrb/PointBasedValueIteration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dominikstrb/PointBasedValueIteration.jl)
+
 
 Point-based value iteration solver ([Pineau et al., 2003](http://www.fore.robot.cc/papers/Pineau03a.pdf)) for the [POMDPs.jl](https://github.com/JuliaPOMDP/POMDPs.jl) framework.
 
