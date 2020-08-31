@@ -17,5 +17,5 @@ script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
   - julia --project --color=yes --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("PointBasedValueIteration"; coverage=true)'
 
-#after_success:
-#  - julia -e 'cd(Pkg.dir("PointBasedValueIteration")); import Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+after_success:
+  - julia -e 'cd(Pkg.dir("PointBasedValueIteration")); import Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
