@@ -46,10 +46,13 @@ function backup_belief(pomdp::POMDP, Γ, b)
         Γao = Vector{Float64}[]
 
         for o in O
+            # update beliefs
             b′ = update(DiscreteUpdater(pomdp), b, a, o)
+            # extract optimal alpha vector at resulting belief
             push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
         end
 
+        # construct new alpha vectors
         αa = [r(s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
                                   for (j, sp) in enumerate(S))
                               for (i, o) in enumerate(O))
@@ -58,6 +61,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
         push!(Γa, αa)
     end
 
+    # find the optimal alpha vector
     idx = argmax(map(αa -> αa ⋅ b.b, Γa))
     alphavec = AlphaVec(Γa[idx], A[idx])
 
@@ -65,25 +69,30 @@ function backup_belief(pomdp::POMDP, Γ, b)
     return alphavec
 end
 
+
 function solve(solver::PBVI, pomdp::POMDP)
     k_max = solver.max_iterations
+
+    # initialize belief points
     s = 1 / solver.n_belief_points
     B = [DiscreteBelief(pomdp, [b, 1-b]) for b in 0:s:1]
+
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     γ = discount(pomdp)
     r = StateActionReward(pomdp)
 
+    # best action worst state lower bound
     α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
-    res = nothing
+    alphavecs = nothing
 
     for k in 1 : k_max
-        res = [backup_belief(pomdp, Γ, b) for b in B]
-        Γ = [alphavec.alpha for alphavec in res]
+        alphavecs = [backup_belief(pomdp, Γ, b) for b in B]
+        Γ = [alphavec.alpha for alphavec in alphavecs]
     end
 
-    acts = [alphavec.action for alphavec in res]
+    acts = [alphavec.action for alphavec in alphavecs]
     return AlphaVectorPolicy(pomdp, Γ, acts)
 end
 
