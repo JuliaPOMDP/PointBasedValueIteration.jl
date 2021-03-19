@@ -11,7 +11,7 @@ using PointBasedValueIteration
     pomdps = [TigerPOMDP(), BabyPOMDP()]
 
     for pomdp in pomdps
-        solver = PBVI(n_belief_points=200, max_iterations=500)
+        solver = PBVI()
         policy = solve(solver, pomdp)
 
         sarsop = SARSOPSolver()

@@ -3,16 +3,16 @@
 POMDP solver type using point-based value iteration
 """
 mutable struct PBVI <: Solver
-    n_belief_points::Int64
     max_iterations::Int64
+    ϵ::Float64
 end
 
 """
     PBVI(; max_iterations, tolerance)
-Initialize a point-based value iteration solver with default `n_belief_points` and `max_iterations`.
+Initialize a point-based value iteration solver with default `max_iterations` and ϵ.
 """
-function PBVI(;n_belief_points::Int64=100, max_iterations::Int64=100)
-    return PBVI(n_belief_points, max_iterations)
+function PBVI(;max_iterations::Int64=10, ϵ::Float64=0.01)
+    return PBVI(max_iterations, ϵ)
 end
 
 """
@@ -28,6 +28,7 @@ end
 ==(a::AlphaVec, b::AlphaVec) = (a.alpha,a.action) == (b.alpha, b.action)
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 
+convert(::Type{Array{Float64, 1}}, d::BoolDistribution)  = [d.p, 1 - d.p]
 
 function _argmax(f, X)
     return X[argmax(map(f, X))]
@@ -65,18 +66,79 @@ function backup_belief(pomdp::POMDP, Γ, b)
     idx = argmax(map(αa -> αa ⋅ b.b, Γa))
     alphavec = AlphaVec(Γa[idx], A[idx])
 
-    # return _argmax(αa -> αa ⋅ b.b, Γa)
     return alphavec
 end
 
 
+function improve(pomdp, B, Γ, ϵ)
+    alphavecs = nothing
+    while true
+        Γold = Γ
+        alphavecs = [backup_belief(pomdp, Γold, b) for b in B]
+        Γ = [alphavec.alpha for alphavec in alphavecs]
+        max([max(abs.(α1 .- α2)...) for (α1, α2) in zip(Γold, Γ)]...) .> ϵ || break
+    end
+
+    return Γ, alphavecs
+end
+
+function prob_o_given_b_a(pomdp, b, a, o)
+    pr_o_given_b_a = 0.
+    for sp in states(pomdp)
+        temp_sum = sum([pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)] for s in states(pomdp)])
+        pr_o_given_b_a += pdf(observation(pomdp, a, sp), o) * temp_sum
+    end
+
+    return pr_o_given_b_a
+end
+
+function b_o_a(pomdp, b::Vector{Float64}, a, o)
+    b_new = zeros(length(states(pomdp)))
+    for sp in states(pomdp)
+        b_temp = 0
+        for s in states(pomdp)
+            b_temp += pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)]
+        end
+
+        b_new[stateindex(pomdp, sp)] = pdf(observation(pomdp, a, sp), o) / prob_o_given_b_a(pomdp, b, a, o) * b_temp
+    end
+
+    return b_new
+end
+
+function successors(pomdp, b)
+    succs = []
+    for a in actions(pomdp)
+        for o in observations(pomdp)
+            if prob_o_given_b_a(pomdp, b, a, o) > 0.
+                push!(succs, b_o_a(pomdp, b, a, o))
+            end
+        end
+    end
+
+    return succs
+end
+
+function succ_dist(pomdp, bp, B)
+    dist = [norm(bp - b.b, 1) for b in B]
+    return max(dist...)
+end
+
+function expand(pomdp, B)
+    B_new = deepcopy(B)
+    for b in B
+        succs = successors(pomdp, b.b)
+        push!(B_new, DiscreteBelief(pomdp, succs[argmax([succ_dist(pomdp, bp, B) for bp in succs])]))
+    end
+
+    return B_new
+end
+
+# 1: B ← {b0}
+# 2: while V has not converged to V∗ do
+# 3:    Improve(V, B)
+# 4:    B ← Expand(B)
 function solve(solver::PBVI, pomdp::POMDP)
-    k_max = solver.max_iterations
-
-    # initialize belief points
-    s = 1 / solver.n_belief_points
-    B = [DiscreteBelief(pomdp, [b, 1-b]) for b in 0:s:1]
-
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     γ = discount(pomdp)
@@ -85,11 +147,21 @@ function solve(solver::PBVI, pomdp::POMDP)
     # best action worst state lower bound
     α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
-    alphavecs = nothing
 
-    for k in 1 : k_max
-        alphavecs = [backup_belief(pomdp, Γ, b) for b in B]
-        Γ = [alphavec.alpha for alphavec in alphavecs]
+    #init belief, if given BoolDistribution, convert to vector
+    init = initialstate(pomdp)
+    if typeof(init) == BoolDistribution
+        init = convert(Array{Float64, 1}, init)
+    end
+    B = [DiscreteBelief(pomdp, init)]
+
+    # original code should run until V converges to V*, this yet needs to be implemented
+    # for example as: while max(@. abs(newV - oldV)...) > solver.ϵ
+    # However this probably would not work, as newV and oldV have different number of elements (arrays of alphas)
+    alphavecs = nothing
+    for i in 1:solver.max_iterations
+        Γ, alphavecs = improve(pomdp, B, Γ, solver.ϵ)
+        B = expand(pomdp, B)
     end
 
     acts = [alphavec.action for alphavec in alphavecs]
