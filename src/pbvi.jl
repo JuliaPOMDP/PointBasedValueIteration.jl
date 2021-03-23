@@ -29,6 +29,32 @@ end
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 
 convert(::Type{Array{Float64, 1}}, d::BoolDistribution)  = [d.p, 1 - d.p]
+convert(::Type{Array{Float64, 1}}, d::SparseCat)  = d.probs
+
+# P(o|b, a) = ∑(sp∈S) P(o|a, sp) ∑(s∈S) P(sp|s, a) * b(s)
+function prob_o_given_b_a(pomdp, b::Array{Float64}, a, o)
+    pr_o_given_b_a = 0.
+    for sp in states(pomdp)
+        temp_sum = sum([pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)] for s in states(pomdp)])
+        pr_o_given_b_a += pdf(observation(pomdp, a, sp), o) * temp_sum
+    end
+
+    return pr_o_given_b_a
+end
+
+function b_o_a(pomdp, b::Vector{Float64}, a, o)
+    b_new = zeros(length(states(pomdp)))
+    for sp in states(pomdp)
+        b_temp = 0
+        for s in states(pomdp)
+            b_temp += pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)]
+        end
+
+        b_new[stateindex(pomdp, sp)] = pdf(observation(pomdp, a, sp), o) / prob_o_given_b_a(pomdp, b, a, o) * b_temp
+    end
+
+    return b_new
+end
 
 function _argmax(f, X)
     return X[argmax(map(f, X))]
@@ -48,7 +74,12 @@ function backup_belief(pomdp::POMDP, Γ, b)
 
         for o in O
             # update beliefs
-            b′ = update(DiscreteUpdater(pomdp), b, a, o)
+            b′ = nothing
+            try
+                b′ = update(DiscreteUpdater(pomdp), b, a, o)
+            catch
+                b′ = DiscreteBelief(pomdp, b.state_list, zeros(length(S)))
+            end
             # extract optimal alpha vector at resulting belief
             push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
         end
@@ -82,37 +113,27 @@ function improve(pomdp, B, Γ, ϵ)
     return Γ, alphavecs
 end
 
-function prob_o_given_b_a(pomdp, b, a, o)
-    pr_o_given_b_a = 0.
-    for sp in states(pomdp)
-        temp_sum = sum([pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)] for s in states(pomdp)])
-        pr_o_given_b_a += pdf(observation(pomdp, a, sp), o) * temp_sum
-    end
-
-    return pr_o_given_b_a
-end
-
-function b_o_a(pomdp, b::Vector{Float64}, a, o)
-    b_new = zeros(length(states(pomdp)))
-    for sp in states(pomdp)
-        b_temp = 0
-        for s in states(pomdp)
-            b_temp += pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)]
-        end
-
-        b_new[stateindex(pomdp, sp)] = pdf(observation(pomdp, a, sp), o) / prob_o_given_b_a(pomdp, b, a, o) * b_temp
-    end
-
-    return b_new
-end
-
-function successors(pomdp, b)
+function successors(pomdp, b, Bs)
     succs = []
     for a in actions(pomdp)
         for o in observations(pomdp)
             if prob_o_given_b_a(pomdp, b, a, o) > 0.
-                push!(succs, b_o_a(pomdp, b, a, o))
+                b′ = b_o_a(pomdp, b, a, o)
+                if !in(b′, Bs)
+                    push!(succs, b′)
+                end
             end
+
+            # This should work but does not, update throws error every time
+
+            # try
+            #     b′ = update(DiscreteUpdater(pomdp), b, a, o)
+            #     if !in(b′, Bs)
+            #         push!(succs, b′)
+            #     end
+            # catch e
+            #     nothing
+            # end
         end
     end
 
@@ -124,14 +145,18 @@ function succ_dist(pomdp, bp, B)
     return max(dist...)
 end
 
-function expand(pomdp, B)
+function expand(pomdp, B, Bs)
     B_new = deepcopy(B)
     for b in B
-        succs = successors(pomdp, b.b)
-        push!(B_new, DiscreteBelief(pomdp, succs[argmax([succ_dist(pomdp, bp, B) for bp in succs])]))
+        succs = successors(pomdp, b.b, Bs)
+        if length(succs) > 0
+            b′ = succs[argmax([succ_dist(pomdp, bp, B) for bp in succs])]
+            push!(B_new, DiscreteBelief(pomdp, b′))
+            push!(Bs, b′)
+        end
     end
 
-    return B_new
+    return B_new, Bs
 end
 
 # 1: B ← {b0}
@@ -148,12 +173,15 @@ function solve(solver::PBVI, pomdp::POMDP)
     α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
 
-    #init belief, if given BoolDistribution, convert to vector
+    #init belief, if given Distribution, convert to vector
     init = initialstate(pomdp)
-    if typeof(init) == BoolDistribution
+    if typeof(init) <: BoolDistribution
+        init = convert(Array{Float64, 1}, init)
+    elseif typeof(init) <: SparseCat
         init = convert(Array{Float64, 1}, init)
     end
     B = [DiscreteBelief(pomdp, init)]
+    Bs = Set([init])
 
     # original code should run until V converges to V*, this yet needs to be implemented
     # for example as: while max(@. abs(newV - oldV)...) > solver.ϵ
@@ -161,7 +189,7 @@ function solve(solver::PBVI, pomdp::POMDP)
     alphavecs = nothing
     for i in 1:solver.max_iterations
         Γ, alphavecs = improve(pomdp, B, Γ, solver.ϵ)
-        B = expand(pomdp, B)
+        B, Bs = expand(pomdp, B, Bs)
     end
 
     acts = [alphavec.action for alphavec in alphavecs]
