@@ -6,13 +6,14 @@ using POMDPModelTools
 using POMDPLinter
 using BeliefUpdaters
 using LinearAlgebra
+using Distributions
 
 import POMDPs: Solver, solve
 import Base: ==, hash
 
 
 export
-    PBVI,
+    PBVISolver,
     solve
 
 include("pbvi.jl")

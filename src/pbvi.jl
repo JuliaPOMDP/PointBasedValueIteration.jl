@@ -1,18 +1,18 @@
 """
-    PBVI <: Solver
+    PBVISolver <: Solver
 POMDP solver type using point-based value iteration
 """
-mutable struct PBVI <: Solver
+mutable struct PBVISolver <: Solver
     max_iterations::Int64
     ϵ::Float64
 end
 
 """
-    PBVI(; max_iterations, tolerance)
+    PBVISolver(; max_iterations, tolerance)
 Initialize a point-based value iteration solver with default `max_iterations` and ϵ.
 """
-function PBVI(;max_iterations::Int64=10, ϵ::Float64=0.01)
-    return PBVI(max_iterations, ϵ)
+function PBVISolver(;max_iterations::Int64=10, ϵ::Float64=0.01)
+    return PBVISolver(max_iterations, ϵ)
 end
 
 """
@@ -28,8 +28,8 @@ end
 ==(a::AlphaVec, b::AlphaVec) = (a.alpha,a.action) == (b.alpha, b.action)
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 
-convert(::Type{Array{Float64, 1}}, d::BoolDistribution)  = [d.p, 1 - d.p]
-convert(::Type{Array{Float64, 1}}, d::SparseCat)  = d.probs
+convert(::Type{Array{Float64, 1}}, d::BoolDistribution, pomdp) = [d.p, 1 - d.p]
+convert(::Type{Array{Float64, 1}}, d::DiscreteUniform, pomdp) = [pdf(d, stateindex(pomdp, s)) for s in states(pomdp)]
 
 # P(o|b, a) = ∑(sp∈S) P(o|a, sp) ∑(s∈S) P(sp|s, a) * b(s)
 function prob_o_given_b_a(pomdp, b::Array{Float64}, a, o)
@@ -163,7 +163,7 @@ end
 # 2: while V has not converged to V∗ do
 # 3:    Improve(V, B)
 # 4:    B ← Expand(B)
-function solve(solver::PBVI, pomdp::POMDP)
+function solve(solver::PBVISolver, pomdp::POMDP)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     γ = discount(pomdp)
@@ -175,10 +175,8 @@ function solve(solver::PBVI, pomdp::POMDP)
 
     #init belief, if given Distribution, convert to vector
     init = initialstate(pomdp)
-    if typeof(init) <: BoolDistribution
-        init = convert(Array{Float64, 1}, init)
-    elseif typeof(init) <: SparseCat
-        init = convert(Array{Float64, 1}, init)
+    if typeof(init) <: BoolDistribution || typeof(init) <: DiscreteUniform
+        init = convert(Array{Float64, 1}, init, pomdp)
     end
     B = [DiscreteBelief(pomdp, init)]
     Bs = Set([init])
@@ -197,7 +195,7 @@ function solve(solver::PBVI, pomdp::POMDP)
 end
 
 
-@POMDPLinter.POMDP_require solve(solver::PBVI, pomdp::POMDP) begin
+@POMDPLinter.POMDP_require solve(solver::PBVISolver, pomdp::POMDP) begin
     P = typeof(pomdp)
     S = state_type(P)
     A = action_type(P)
