@@ -31,30 +31,6 @@ Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 convert(::Type{Array{Float64, 1}}, d::BoolDistribution, pomdp) = [d.p, 1 - d.p]
 convert(::Type{Array{Float64, 1}}, d::DiscreteUniform, pomdp) = [pdf(d, stateindex(pomdp, s)) for s in states(pomdp)]
 
-# P(o|b, a) = ∑(sp∈S) P(o|a, sp) ∑(s∈S) P(sp|s, a) * b(s)
-function prob_o_given_b_a(pomdp, b::Array{Float64}, a, o)
-    pr_o_given_b_a = 0.
-    for sp in states(pomdp)
-        temp_sum = sum([pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)] for s in states(pomdp)])
-        pr_o_given_b_a += pdf(observation(pomdp, a, sp), o) * temp_sum
-    end
-
-    return pr_o_given_b_a
-end
-
-function b_o_a(pomdp, b::Vector{Float64}, a, o)
-    b_new = zeros(length(states(pomdp)))
-    for sp in states(pomdp)
-        b_temp = 0
-        for s in states(pomdp)
-            b_temp += pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)]
-        end
-
-        b_new[stateindex(pomdp, sp)] = pdf(observation(pomdp, a, sp), o) / prob_o_given_b_a(pomdp, b, a, o) * b_temp
-    end
-
-    return b_new
-end
 
 function _argmax(f, X)
     return X[argmax(map(f, X))]
@@ -67,21 +43,26 @@ function backup_belief(pomdp::POMDP, Γ, b)
     γ = discount(pomdp)
     r = StateActionReward(pomdp)
 
-    Γa = Vector{Float64}[]
+    Γa = Vector{Vector{Float64}}(undef, length(A))
 
     for a in A
-        Γao = Vector{Float64}[]
+        Γao = Vector{Vector{Float64}}(undef, length(O))
+        trans_probs = sum([pdf(transition(pomdp, s, a), sp) * b.b[stateindex(pomdp, s)] for s in S, sp in S], dims=1)
 
         for o in O
             # update beliefs
             b′ = nothing
-            try
-                b′ = update(DiscreteUpdater(pomdp), b, a, o)
-            catch
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), ordered_states(pomdp)), o)
+            pr_o_given_b_a = sum(obs_probs .* vec(trans_probs))
+
+            # P(o|b, a) = ∑(sp∈S) P(o|a, sp) ∑(s∈S) P(sp|s, a) * b(s)
+            if pr_o_given_b_a > 0.
+                b′ = DiscreteBelief(pomdp, b.state_list, [obs_probs[stateindex(pomdp, sp)] / pr_o_given_b_a * trans_probs[stateindex(pomdp, sp)] for sp in ordered_states(pomdp)])
+            else
                 b′ = DiscreteBelief(pomdp, b.state_list, zeros(length(S)))
             end
             # extract optimal alpha vector at resulting belief
-            push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
+            Γao[obsindex(pomdp, o)] = _argmax(α -> α ⋅ b′.b, Γ)
         end
 
         # construct new alpha vectors
@@ -90,7 +71,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
                               for (i, o) in enumerate(O))
               for s in S]
 
-        push!(Γa, αa)
+        Γa[actionindex(pomdp, a)] = αa
     end
 
     # find the optimal alpha vector
@@ -116,9 +97,12 @@ end
 function successors(pomdp, b, Bs)
     succs = []
     for a in actions(pomdp)
+        trans_probs = sum([pdf(transition(pomdp, s, a), sp) * b[stateindex(pomdp, s)] for s in states(pomdp), sp in ordered_states(pomdp)], dims=1)
         for o in observations(pomdp)
-            if prob_o_given_b_a(pomdp, b, a, o) > 0.
-                b′ = b_o_a(pomdp, b, a, o)
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), ordered_states(pomdp)), o)
+            pr_o_given_b_a = sum(obs_probs .* trans_probs')
+            if pr_o_given_b_a > 0.
+                b′ = [obs_probs[stateindex(pomdp, sp)] / pr_o_given_b_a * trans_probs[stateindex(pomdp, sp)] for sp in ordered_states(pomdp)]
                 if !in(b′, Bs)
                     push!(succs, b′)
                 end
