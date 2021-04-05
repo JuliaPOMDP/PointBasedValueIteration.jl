@@ -130,7 +130,7 @@ function succ_dist(pomdp, bp, B)
 end
 
 function expand(pomdp, B, Bs)
-    B_new = deepcopy(B)
+    B_new = copy(B)
     for b in B
         succs = successors(pomdp, b.b, Bs)
         if length(succs) > 0
