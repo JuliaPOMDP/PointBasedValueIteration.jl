@@ -107,17 +107,6 @@ function successors(pomdp, b, Bs)
                     push!(succs, b′)
                 end
             end
-
-            # This should work but does not, update throws error every time
-
-            # try
-            #     b′ = update(DiscreteUpdater(pomdp), b, a, o)
-            #     if !in(b′, Bs)
-            #         push!(succs, b′)
-            #     end
-            # catch e
-            #     nothing
-            # end
         end
     end
 
