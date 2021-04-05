@@ -88,7 +88,7 @@ function improve(pomdp, B, Γ, ϵ)
         Γold = Γ
         alphavecs = [backup_belief(pomdp, Γold, b) for b in B]
         Γ = [alphavec.alpha for alphavec in alphavecs]
-        max([max(abs.(α1 .- α2)...) for (α1, α2) in zip(Γold, Γ)]...) .> ϵ || break
+        max([sum(abs.(α1 .- α2)) for (α1, α2) in zip(Γold, Γ)]...) .> ϵ || break
     end
 
     return Γ, alphavecs
