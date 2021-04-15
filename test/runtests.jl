@@ -12,7 +12,7 @@ using PointBasedValueIteration
     pomdps = [TigerPOMDP(), BabyPOMDP(), MiniHallway()]
 
     for pomdp in pomdps
-        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 1. : 0.01)
+        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 1. : 0.01, false)
         policy = solve(solver, pomdp)
 
         sarsop = SARSOPSolver(verbose=false)
@@ -67,7 +67,6 @@ using PointBasedValueIteration
                                     rtol=0.1)
                 end
             end
-            # end
         end
     end
 end

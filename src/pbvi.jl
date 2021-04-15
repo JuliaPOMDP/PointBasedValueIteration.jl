@@ -5,14 +5,15 @@ POMDP solver type using point-based value iteration
 mutable struct PBVISolver <: Solver
     max_iterations::Int64
     ϵ::Float64
+    verbose::Bool
 end
 
 """
     PBVISolver(; max_iterations, tolerance)
 Initialize a point-based value iteration solver with default `max_iterations` and ϵ.
 """
-function PBVISolver(;max_iterations::Int64=10, ϵ::Float64=0.01)
-    return PBVISolver(max_iterations, ϵ)
+function PBVISolver(;max_iterations::Int64=10, ϵ::Float64=0.01, verbose::Bool=false)
+    return PBVISolver(max_iterations, ϵ, verbose)
 end
 
 """
@@ -98,13 +99,15 @@ function backup_belief(pomdp::POMDP, Γ, b)
 end
 
 
-function improve(pomdp, B, Γ, ϵ)
+function improve(pomdp, B, Γ, solver)
     alphavecs = nothing
     while true
         Γold = Γ
         alphavecs = [backup_belief(pomdp, Γold, b) for b in B]
         Γ = [alphavec.alpha for alphavec in alphavecs]
-        max([sum(abs.(α1 .- α2)) for (α1, α2) in zip(Γold, Γ)]...) .> ϵ || break
+        prec = max([sum(abs.(α1 .- α2)) for (α1, α2) in zip(Γold, Γ)]...)
+        if solver.verbose println("    Improving alphas, maximum gap between old and new α vector: $(prec)") end
+        prec > solver.ϵ || break
     end
 
     return Γ, alphavecs
@@ -179,13 +182,16 @@ function solve(solver::PBVISolver, pomdp::POMDP)
     B = [DiscreteBelief(pomdp, init)]
     Bs = Set([init])
 
+    if solver.verbose println("Running PBVI solver on $(typeof(pomdp)) problem with following settings:\n    max_iterations = $(solver.max_iterations), ϵ = $(solver.ϵ), verbose = $(solver.verbose)\n+----------------------------------------------------------+") end
+
     # original code should run until V converges to V*, this yet needs to be implemented
     # for example as: while max(@. abs(newV - oldV)...) > solver.ϵ
     # However this probably would not work, as newV and oldV have different number of elements (arrays of alphas)
     alphavecs = nothing
     for i in 1:solver.max_iterations
-        Γ, alphavecs = improve(pomdp, B, Γ, solver.ϵ)
+        Γ, alphavecs = improve(pomdp, B, Γ, solver)
         B, Bs = expand(pomdp, B, Bs)
+        if solver.verbose println("Iteration $(i) executed, belief set contains $(length(Bs)) belief vectors.") end
     end
 
     acts = [alphavec.action for alphavec in alphavecs]
