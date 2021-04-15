@@ -64,13 +64,13 @@ function backup_belief(pomdp::POMDP, Γ, b)
     terminals = [stateindex(pomdp, s) for s in S if isterminal(pomdp, s)]
     for a in A
         Γao = Vector{Vector{Float64}}(undef, length(O))
-        trans_probs = sum([pdf(transition(pomdp, S[is], a), sp) * b.b[is] for is in not_terminals, sp in S], dims=1)
+        trans_probs = dropdims(sum([pdf(transition(pomdp, S[is], a), sp) * b.b[is] for sp in S, is in not_terminals], dims=2), dims=2)
         if !isempty(terminals) trans_probs[terminals] .+= b.b[terminals] end
 
         for o in O
             # update beliefs
-            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), o)
-            b′ = obs_probs .* vec(trans_probs)
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), [o])
+            b′ = obs_probs .* trans_probs
 
             if sum(b′) > 0.
                 b′ = DiscreteBelief(pomdp, b.state_list, belief_update(pomdp, b.b, b′, terminals, not_terminals))
@@ -83,18 +83,15 @@ function backup_belief(pomdp::POMDP, Γ, b)
         end
 
         # construct new alpha vectors
-        αa = [r(s, a) + (!isterminal(pomdp, s) ? (γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
-                                for (j, sp) in enumerate(S))
-                            for (i, o) in enumerate(O))) : 0.)
-            for s in S]
-
-        Γa[actionindex(pomdp, a)] = αa
+        Γa[actionindex(pomdp, a)] = [r(s, a) + (!isterminal(pomdp, s) ? (γ * sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
+                                        for (j, sp) in enumerate(S), (i, o) in enumerate(O))) : 0.)
+                                        for s in S]
     end
 
     # find the optimal alpha vector
     idx = argmax(map(αa -> αa ⋅ b.b, Γa))
     alphavec = AlphaVec(Γa[idx], A[idx])
-    
+
     return alphavec
 end
 
@@ -120,13 +117,14 @@ function successors(pomdp, b, Bs)
     succs = []
 
     for a in actions(pomdp)
-        trans_probs = sum([pdf(transition(pomdp, S[is], a), sp) * b[is] for is in not_terminals, sp in S], dims=1)
+        trans_probs = dropdims(sum([pdf(transition(pomdp, S[is], a), sp) * b[is] for sp in S, is in not_terminals], dims=2), dims=2)
         if !isempty(terminals) trans_probs[terminals] .+= b[terminals] end
 
         for o in observations(pomdp)
             #update belief
-            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), o)
-            b′ = obs_probs .* vec(trans_probs)
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), [o])
+            b′ = obs_probs .* trans_probs
+
 
             if sum(b′) > 0.
                 b′ = belief_update(pomdp, b, b′, terminals, not_terminals)
@@ -174,11 +172,8 @@ function solve(solver::PBVISolver, pomdp::POMDP)
     α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
 
-    #init belief, if given Distribution, convert to vector
-    init = initialstate(pomdp)
-    if typeof(init) <: BoolDistribution || typeof(init) <: DiscreteUniform
-        init = convert(Array{Float64, 1}, init, pomdp)
-    end
+    #init belief, if given distribution, convert to vector
+    init = convert(Array{Float64, 1}, initialstate(pomdp), pomdp)
     B = [DiscreteBelief(pomdp, init)]
     Bs = Set([init])
 
