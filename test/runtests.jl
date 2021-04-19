@@ -55,6 +55,7 @@ using PointBasedValueIteration
                 # @show mean([simulate(RolloutSimulator(max_steps = 100), pomdp, policy, updater(policy), Deterministic(s)) for i in 1:no_simulations])
                 # @show mean([simulate(RolloutSimulator(max_steps = 100), pomdp, sarsop_policy, updater(sarsop_policy), Deterministic(s)) for i in 1:no_simulations])
 
+                # In this state the PBVI outputs better results than SARSOP, because SARSOP does not evaluate this state, thus having sub-optimal result
                 if s == 5 && typeof(pomdp) == MiniHallway
                     @test_broken isapprox(value(policy, Deterministic(s)), value(sarsop_policy, Deterministic(s)), rtol=0.1)
                     @test_broken isapprox(  mean([simulate(RolloutSimulator(max_steps = 100), pomdp, policy, updater(policy), Deterministic(s)) for i in 1:no_simulations]),
