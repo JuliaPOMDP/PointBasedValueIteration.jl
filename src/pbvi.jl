@@ -50,7 +50,8 @@ function belief_update(pomdp, b, b′, terminals, not_terminals)
             b′[not_terminals] /= sum(b′[not_terminals])
         end
     else
-        b′[terminals] .= 1/length(terminals)
+        b′[terminals] += b[terminals]
+        b′[terminals] /= sum(b′[terminals])
     end
     return b′
 end
