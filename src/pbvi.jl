@@ -1,6 +1,12 @@
 """
     PBVISolver <: Solver
-POMDP solver type using point-based value iteration
+
+Options dictionary for Point-Based Value Iteration for POMDPs.
+
+# Fields
+- `max_iterations::Int64` the maximal number of iterations the solver runs. Default: 10
+- `ϵ::Float64` the maximal gap between alpha vector improve steps. Default = 0.01
+- `verbose::Bool` switch for solver text output. Default: false
 """
 mutable struct PBVISolver <: Solver
     max_iterations::Int64
@@ -8,24 +14,24 @@ mutable struct PBVISolver <: Solver
     verbose::Bool
 end
 
-"""
-    PBVISolver(; max_iterations, tolerance)
-Initialize a point-based value iteration solver with default `max_iterations` and ϵ.
-"""
 function PBVISolver(;max_iterations::Int64=10, ϵ::Float64=0.01, verbose::Bool=false)
     return PBVISolver(max_iterations, ϵ, verbose)
 end
 
 """
     AlphaVec
-Alpha vector type of paired vector and action.
+
+Pair of alpha vector and corresponding action.
+
+# Fields
+- `alpha` α vector
+- `action` action corresponding to α vector
 """
 struct AlphaVec
-    alpha::Vector{Float64} # alpha vector
-    action::Any # action associated wtih alpha vector
+    alpha::Vector{Float64}
+    action::Any
 end
 
-# define alpha vector equality
 ==(a::AlphaVec, b::AlphaVec) = (a.alpha,a.action) == (b.alpha, b.action)
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 
@@ -41,7 +47,8 @@ function _argmax(f, X)
     return X[argmax(map(f, X))]
 end
 
-function belief_update(pomdp, b, b′, terminals, not_terminals)
+# adds probabilities of terminals in b to b′ and normalizes b′
+function belief_norm(pomdp, b, b′, terminals, not_terminals)
     if sum(b′[not_terminals]) != 0.
         if !isempty(terminals)
             b′[not_terminals] = b′[not_terminals] / (sum(b′[not_terminals]) / (1. - sum(b[terminals]) - sum(b′[terminals])))
@@ -56,6 +63,7 @@ function belief_update(pomdp, b, b′, terminals, not_terminals)
     return b′
 end
 
+# Backups belief with α vector maximizing dot product of itself with belief b
 function backup_belief(pomdp::POMDP, Γ, b)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
@@ -78,7 +86,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
             b′ = obs_probs .* trans_probs
 
             if sum(b′) > 0.
-                b′ = DiscreteBelief(pomdp, b.state_list, belief_update(pomdp, b.b, b′, terminals, not_terminals))
+                b′ = DiscreteBelief(pomdp, b.state_list, belief_norm(pomdp, b.b, b′, terminals, not_terminals))
             else
                 b′ = DiscreteBelief(pomdp, b.state_list, zeros(length(S)))
             end
@@ -100,7 +108,7 @@ function backup_belief(pomdp::POMDP, Γ, b)
     return alphavec
 end
 
-
+# Iteratively improves α vectors until the gap between steps is lesser than ϵ
 function improve(pomdp, B, Γ, solver)
     alphavecs = nothing
     while true
@@ -115,6 +123,7 @@ function improve(pomdp, B, Γ, solver)
     return Γ, alphavecs
 end
 
+# Returns all possible, not yet visited successors of current belief b
 function successors(pomdp, b, Bs)
     S = ordered_states(pomdp)
     not_terminals = [stateindex(pomdp, s) for s in S if !isterminal(pomdp, s)]
@@ -132,7 +141,7 @@ function successors(pomdp, b, Bs)
 
 
             if sum(b′) > 0.
-                b′ = belief_update(pomdp, b, b′, terminals, not_terminals)
+                b′ = belief_norm(pomdp, b, b′, terminals, not_terminals)
 
                 if !in(b′, Bs)
                     push!(succs, b′)
@@ -144,11 +153,13 @@ function successors(pomdp, b, Bs)
     return succs
 end
 
+# Computes distance of successor to the belief vectors in belief space
 function succ_dist(pomdp, bp, B)
     dist = [norm(bp - b.b, 1) for b in B]
     return max(dist...)
 end
 
+# Expands the belief space with the most distant belief vector
 function expand(pomdp, B, Bs)
     B_new = copy(B)
     for b in B
