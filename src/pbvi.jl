@@ -8,7 +8,7 @@ Options dictionary for Point-Based Value Iteration for POMDPs.
 - `ϵ::Float64` the maximal gap between alpha vector improve steps. Default = 0.01
 - `verbose::Bool` switch for solver text output. Default: false
 """
-mutable struct PBVISolver <: Solver
+struct PBVISolver <: Solver
     max_iterations::Int64
     ϵ::Float64
     verbose::Bool
