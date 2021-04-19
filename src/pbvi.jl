@@ -160,6 +160,7 @@ function succ_dist(pomdp, bp, B)
 end
 
 # Expands the belief space with the most distant belief vector
+# Returns new belief space, set of belifs and early termination flag
 function expand(pomdp, B, Bs)
     B_new = copy(B)
     for b in B
@@ -171,7 +172,7 @@ function expand(pomdp, B, Bs)
         end
     end
 
-    return B_new, Bs
+    return B_new, Bs, length(B) == length(B_new)
 end
 
 # 1: B ← {b0}
@@ -201,10 +202,12 @@ function solve(solver::PBVISolver, pomdp::POMDP)
     alphavecs = nothing
     for i in 1:solver.max_iterations
         Γ, alphavecs = improve(pomdp, B, Γ, solver)
-        B, Bs = expand(pomdp, B, Bs)
+        B, Bs, early_term = expand(pomdp, B, Bs)
         if solver.verbose println("Iteration $(i) executed, belief set contains $(length(Bs)) belief vectors.") end
+        if solver.verbose && early_term println("Belief space did not expand. \nTerminating early."); break; end
     end
 
+    if solver.verbose println("+----------------------------------------------------------+") end
     acts = [alphavec.action for alphavec in alphavecs]
     return AlphaVectorPolicy(pomdp, Γ, acts)
 end
