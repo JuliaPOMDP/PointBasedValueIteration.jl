@@ -115,7 +115,7 @@ function improve(pomdp, B, Γ, solver)
         Γold = Γ
         alphavecs = [backup_belief(pomdp, Γold, b) for b in B]
         Γ = [alphavec.alpha for alphavec in alphavecs]
-        prec = max([sum(abs.(α1 .- α2)) for (α1, α2) in zip(Γold, Γ)]...)
+        prec = max([sum(abs.(dot(α1, b.b) .- dot(α2, b.b))) for (α1, α2, b) in zip(Γold, Γ, B)]...)
         if solver.verbose println("    Improving alphas, maximum gap between old and new α vector: $(prec)") end
         prec > solver.ϵ || break
     end
