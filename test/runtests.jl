@@ -12,10 +12,10 @@ using PointBasedValueIteration
     pomdps = [TigerPOMDP(), BabyPOMDP(), MiniHallway()]
 
     for pomdp in pomdps
-        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 1. : 0.01, false)
+        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 0.05 : 0.01, true)
         policy = solve(solver, pomdp)
 
-        sarsop = SARSOPSolver(verbose=false)
+        sarsop = SARSOPSolver(verbose=true)
         sarsop_policy = solve(sarsop, pomdp)
 
         @testset "$(typeof(pomdp)) Value function comparison" begin
