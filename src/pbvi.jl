@@ -204,7 +204,10 @@ function solve(solver::PBVISolver, pomdp::POMDP)
         Γ, alphavecs = improve(pomdp, B, Γ, solver)
         B, Bs, early_term = expand(pomdp, B, Bs)
         if solver.verbose println("Iteration $(i) executed, belief set contains $(length(Bs)) belief vectors.") end
-        if solver.verbose && early_term println("Belief space did not expand. \nTerminating early."); break; end
+        if early_term
+            if solver.verbose println("Belief space did not expand. \nTerminating early.") end
+            break
+        end
     end
 
     if solver.verbose println("+----------------------------------------------------------+") end
