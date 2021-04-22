@@ -12,10 +12,10 @@ using PointBasedValueIteration
     pomdps = [TigerPOMDP(), BabyPOMDP(), MiniHallway()]
 
     for pomdp in pomdps
-        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 0.05 : 0.01, true)
+        solver = PBVISolver(10, typeof(pomdp) == MiniHallway ? 0.05 : 0.01, false)
         policy = solve(solver, pomdp)
 
-        sarsop = SARSOPSolver(verbose=true)
+        sarsop = SARSOPSolver(verbose=false)
         sarsop_policy = solve(sarsop, pomdp)
 
         @testset "$(typeof(pomdp)) Value function comparison" begin
@@ -57,10 +57,7 @@ using PointBasedValueIteration
 
                 # In this state the PBVI outputs better results than SARSOP, because SARSOP does not evaluate this state, thus having sub-optimal result
                 if s == 5 && typeof(pomdp) == MiniHallway
-                    @test_broken isapprox(value(policy, Deterministic(s)), value(sarsop_policy, Deterministic(s)), rtol=0.1)
-                    @test_broken isapprox(  mean([simulate(RolloutSimulator(max_steps = 100), pomdp, policy, updater(policy), Deterministic(s)) for i in 1:no_simulations]),
-                                            mean([simulate(RolloutSimulator(max_steps = 100), pomdp, sarsop_policy, updater(sarsop_policy), Deterministic(s)) for i in 1:no_simulations]),
-                                            rtol=0.1)
+                    continue
                 else
                     @test isapprox(value(policy, Deterministic(s)), value(sarsop_policy, Deterministic(s)), rtol=0.1)
                     @test isapprox( mean([simulate(RolloutSimulator(max_steps = 100), pomdp, policy, updater(policy), Deterministic(s)) for i in 1:no_simulations]),
