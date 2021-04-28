@@ -1,7 +1,7 @@
 name = "PointBasedValueIteration"
 uuid = "835c131e-675f-4498-8e2c-c054c75556e1"
-authors = ["Dominik Straub <straub@psychologie.tu-darmstadt.de>"]
-version = "0.1.0"
+authors = ["Dominik Straub <straub@psychologie.tu-darmstadt.de> and Tomáš Omasta <tomom@email.cz>"]
+version = "0.2.0"
 
 [deps]
 BeliefUpdaters = "8bb6e9a1-7d73-552c-a44a-e5dc5634aac4"
@@ -15,6 +15,7 @@ POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
 
 [compat]
 BeliefUpdaters = "0.2"
+FiniteHorizonPOMDPs = "0.3"
 POMDPLinter = "0.1"
 POMDPModelTools = "0.3.2"
 POMDPPolicies = "0.3, 0.4"
