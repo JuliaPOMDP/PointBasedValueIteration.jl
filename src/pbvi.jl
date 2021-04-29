@@ -1,38 +1,76 @@
 """
-    PBVI <: Solver
-POMDP solver type using point-based value iteration
+    PBVISolver <: Solver
+
+Options dictionary for Point-Based Value Iteration for POMDPs.
+
+# Fields
+- `max_iterations::Int64` the maximal number of iterations the solver runs. Default: 10
+- `ϵ::Float64` the maximal gap between alpha vector improve steps. Default = 0.01
+- `verbose::Bool` switch for solver text output. Default: false
 """
-mutable struct PBVI <: Solver
-    n_belief_points::Int64
+struct PBVISolver <: Solver
     max_iterations::Int64
+    ϵ::Float64
+    verbose::Bool
 end
 
-"""
-    PBVI(; max_iterations, tolerance)
-Initialize a point-based value iteration solver with default `n_belief_points` and `max_iterations`.
-"""
-function PBVI(;n_belief_points::Int64=100, max_iterations::Int64=100)
-    return PBVI(n_belief_points, max_iterations)
+function PBVISolver(;max_iterations::Int64=10, ϵ::Float64=0.01, verbose::Bool=false)
+    return PBVISolver(max_iterations, ϵ, verbose)
 end
 
 """
     AlphaVec
-Alpha vector type of paired vector and action.
+
+Pair of alpha vector and corresponding action.
+
+# Fields
+- `alpha` α vector
+- `action` action corresponding to α vector
 """
 struct AlphaVec
-    alpha::Vector{Float64} # alpha vector
-    action::Any # action associated wtih alpha vector
+    alpha::Vector{Float64}
+    action::Any
 end
 
-# define alpha vector equality
 ==(a::AlphaVec, b::AlphaVec) = (a.alpha,a.action) == (b.alpha, b.action)
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
+
+convert(::Type{Array{Float64, 1}}, d::BoolDistribution, pomdp) = [1 - d.p, d.p]
+convert(::Type{Array{Float64, 1}}, d::DiscreteUniform, pomdp) = [pdf(d, stateindex(pomdp, s)) for s in states(pomdp)]
+convert(::Type{Array{Float64, 1}}, d::SparseCat, pomdp) = d.probs
+
+convert(::Type{Array{Float64, 1}}, d::InStageDistribution{DiscreteUniform}, m::FixedHorizonPOMDPWrapper) = vec([pdf(d, s) for s in states(m)])
+
+function convert(::Type{Array{Float64, 1}}, d::InStageDistribution{BoolDistribution}, m::FixedHorizonPOMDPWrapper)
+    if stage(d) == 1
+        append!([1 - d.d.p[1], d.d.p[1]], zeros(length(states(m)) - 2))
+    else
+        append!(append!(zeros((stage(d) - 1) * length(stage_states(m, 1))), [1 - d.d.p[1], d.d.p[1]]), zeros((horizon(m) - stage(d) + 1) * length(stage_states(m, 1))))
+    end
+end
 
 
 function _argmax(f, X)
     return X[argmax(map(f, X))]
 end
 
+# adds probabilities of terminals in b to b′ and normalizes b′
+function belief_norm(pomdp, b, b′, terminals, not_terminals)
+    if sum(b′[not_terminals]) != 0.
+        if !isempty(terminals)
+            b′[not_terminals] = b′[not_terminals] / (sum(b′[not_terminals]) / (1. - sum(b[terminals]) - sum(b′[terminals])))
+            b′[terminals] += b[terminals]
+        else
+            b′[not_terminals] /= sum(b′[not_terminals])
+        end
+    else
+        b′[terminals] += b[terminals]
+        b′[terminals] /= sum(b′[terminals])
+    end
+    return b′
+end
+
+# Backups belief with α vector maximizing dot product of itself with belief b
 function backup_belief(pomdp::POMDP, Γ, b)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
@@ -40,43 +78,115 @@ function backup_belief(pomdp::POMDP, Γ, b)
     γ = discount(pomdp)
     r = StateActionReward(pomdp)
 
-    Γa = Vector{Float64}[]
+    Γa = Vector{Vector{Float64}}(undef, length(A))
 
+    not_terminals = [stateindex(pomdp, s) for s in S if !isterminal(pomdp, s)]
+    terminals = [stateindex(pomdp, s) for s in S if isterminal(pomdp, s)]
     for a in A
-        Γao = Vector{Float64}[]
+        Γao = Vector{Vector{Float64}}(undef, length(O))
+        trans_probs = dropdims(sum([pdf(transition(pomdp, S[is], a), sp) * b.b[is] for sp in S, is in not_terminals], dims=2), dims=2)
+        if !isempty(terminals) trans_probs[terminals] .+= b.b[terminals] end
 
         for o in O
             # update beliefs
-            b′ = update(DiscreteUpdater(pomdp), b, a, o)
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), [o])
+            b′ = obs_probs .* trans_probs
+
+            if sum(b′) > 0.
+                b′ = DiscreteBelief(pomdp, b.state_list, belief_norm(pomdp, b.b, b′, terminals, not_terminals))
+            else
+                b′ = DiscreteBelief(pomdp, b.state_list, zeros(length(S)))
+            end
+
             # extract optimal alpha vector at resulting belief
-            push!(Γao, _argmax(α -> α ⋅ b′.b, Γ))
+            Γao[obsindex(pomdp, o)] = _argmax(α -> α ⋅ b′.b, Γ)
         end
 
         # construct new alpha vectors
-        αa = [r(s, a) + γ * sum(sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
-                                  for (j, sp) in enumerate(S))
-                              for (i, o) in enumerate(O))
-              for s in S]
-
-        push!(Γa, αa)
+        Γa[actionindex(pomdp, a)] = [r(s, a) + (!isterminal(pomdp, s) ? (γ * sum(pdf(transition(pomdp, s, a), sp) * pdf(observation(pomdp, s, a, sp), o) * Γao[i][j]
+                                        for (j, sp) in enumerate(S), (i, o) in enumerate(O))) : 0.)
+                                        for s in S]
     end
 
     # find the optimal alpha vector
     idx = argmax(map(αa -> αa ⋅ b.b, Γa))
     alphavec = AlphaVec(Γa[idx], A[idx])
 
-    # return _argmax(αa -> αa ⋅ b.b, Γa)
     return alphavec
 end
 
+# Iteratively improves α vectors until the gap between steps is lesser than ϵ
+function improve(pomdp, B, Γ, solver)
+    alphavecs = nothing
+    while true
+        Γold = Γ
+        alphavecs = [backup_belief(pomdp, Γold, b) for b in B]
+        Γ = [alphavec.alpha for alphavec in alphavecs]
+        prec = max([sum(abs.(dot(α1, b.b) .- dot(α2, b.b))) for (α1, α2, b) in zip(Γold, Γ, B)]...)
+        if solver.verbose println("    Improving alphas, maximum gap between old and new α vector: $(prec)") end
+        prec > solver.ϵ || break
+    end
 
-function solve(solver::PBVI, pomdp::POMDP)
-    k_max = solver.max_iterations
+    return Γ, alphavecs
+end
 
-    # initialize belief points
-    s = 1 / solver.n_belief_points
-    B = [DiscreteBelief(pomdp, [b, 1-b]) for b in 0:s:1]
+# Returns all possible, not yet visited successors of current belief b
+function successors(pomdp, b, Bs)
+    S = ordered_states(pomdp)
+    not_terminals = [stateindex(pomdp, s) for s in S if !isterminal(pomdp, s)]
+    terminals = [stateindex(pomdp, s) for s in S if isterminal(pomdp, s)]
+    succs = []
 
+    for a in actions(pomdp)
+        trans_probs = dropdims(sum([pdf(transition(pomdp, S[is], a), sp) * b[is] for sp in S, is in not_terminals], dims=2), dims=2)
+        if !isempty(terminals) trans_probs[terminals] .+= b[terminals] end
+
+        for o in observations(pomdp)
+            #update belief
+            obs_probs = pdf.(map(sp -> observation(pomdp, a, sp), S), [o])
+            b′ = obs_probs .* trans_probs
+
+
+            if sum(b′) > 0.
+                b′ = belief_norm(pomdp, b, b′, terminals, not_terminals)
+
+                if !in(b′, Bs)
+                    push!(succs, b′)
+                end
+            end
+        end
+    end
+
+    return succs
+end
+
+# Computes distance of successor to the belief vectors in belief space
+function succ_dist(pomdp, bp, B)
+    dist = [norm(bp - b.b, 1) for b in B]
+    return max(dist...)
+end
+
+# Expands the belief space with the most distant belief vector
+# Returns new belief space, set of belifs and early termination flag
+function expand(pomdp, B, Bs)
+    B_new = copy(B)
+    for b in B
+        succs = successors(pomdp, b.b, Bs)
+        if length(succs) > 0
+            b′ = succs[argmax([succ_dist(pomdp, bp, B) for bp in succs])]
+            push!(B_new, DiscreteBelief(pomdp, b′))
+            push!(Bs, b′)
+        end
+    end
+
+    return B_new, Bs, length(B) == length(B_new)
+end
+
+# 1: B ← {b0}
+# 2: while V has not converged to V∗ do
+# 3:    Improve(V, B)
+# 4:    B ← Expand(B)
+function solve(solver::PBVISolver, pomdp::POMDP)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     γ = discount(pomdp)
@@ -85,19 +195,35 @@ function solve(solver::PBVI, pomdp::POMDP)
     # best action worst state lower bound
     α_init = 1 / (1 - γ) * maximum(minimum(r(s, a) for s in S) for a in A)
     Γ = [fill(α_init, length(S)) for a in A]
-    alphavecs = nothing
 
-    for k in 1 : k_max
-        alphavecs = [backup_belief(pomdp, Γ, b) for b in B]
-        Γ = [alphavec.alpha for alphavec in alphavecs]
+    #init belief, if given distribution, convert to vector
+    init = convert(Array{Float64, 1}, initialstate(pomdp), pomdp)
+    B = [DiscreteBelief(pomdp, init)]
+    Bs = Set([init])
+
+    if solver.verbose println("Running PBVI solver on $(typeof(pomdp)) problem with following settings:\n    max_iterations = $(solver.max_iterations), ϵ = $(solver.ϵ), verbose = $(solver.verbose)\n+----------------------------------------------------------+") end
+
+    # original code should run until V converges to V*, this yet needs to be implemented
+    # for example as: while max(@. abs(newV - oldV)...) > solver.ϵ
+    # However this probably would not work, as newV and oldV have different number of elements (arrays of alphas)
+    alphavecs = nothing
+    for i in 1:solver.max_iterations
+        Γ, alphavecs = improve(pomdp, B, Γ, solver)
+        B, Bs, early_term = expand(pomdp, B, Bs)
+        if solver.verbose println("Iteration $(i) executed, belief set contains $(length(Bs)) belief vectors.") end
+        if early_term
+            if solver.verbose println("Belief space did not expand. \nTerminating early.") end
+            break
+        end
     end
 
+    if solver.verbose println("+----------------------------------------------------------+") end
     acts = [alphavec.action for alphavec in alphavecs]
     return AlphaVectorPolicy(pomdp, Γ, acts)
 end
 
 
-@POMDPLinter.POMDP_require solve(solver::PBVI, pomdp::POMDP) begin
+@POMDPLinter.POMDP_require solve(solver::PBVISolver, pomdp::POMDP) begin
     P = typeof(pomdp)
     S = state_type(P)
     A = action_type(P)
