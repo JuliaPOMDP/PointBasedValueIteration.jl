@@ -182,9 +182,9 @@ function solve(solver::PBVISolver, pomdp::POMDP)
     Γ = [fill(α_init, length(S)) for a in A]
 
     #init belief, if given distribution, convert to vector
-    init = initialize_belief(DiscreteUpdater(pomdp), initialstate(pomdp)).b
-    B = [DiscreteBelief(pomdp, init)]
-    Bs = Set([init])
+    init = initialize_belief(DiscreteUpdater(pomdp), initialstate(pomdp))
+    B = [init]
+    Bs = Set([init.b])
 
     if solver.verbose println("Running PBVI solver on $(typeof(pomdp)) problem with following settings:\n    max_iterations = $(solver.max_iterations), ϵ = $(solver.ϵ), verbose = $(solver.verbose)\n+----------------------------------------------------------+") end
 
