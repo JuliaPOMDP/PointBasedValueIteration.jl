@@ -3,49 +3,10 @@ using POMDPModels
 using POMDPs
 using SARSOP
 using BeliefUpdaters
-using POMDPModelTools: Deterministic
-using POMDPSimulators: RolloutSimulator
+using POMDPModelTools
+using POMDPSimulators
 using FiniteHorizonPOMDPs
-
 using PointBasedValueIteration
-
-@testset "Convert test" begin
-    @testset "Infinite Horizon POMDP tests" begin
-        tigerPOMDP = TigerPOMDP()
-        babyPOMDP = BabyPOMDP()
-        minihallwayPOMDP = MiniHallway()
-
-        @test convert(Array{Float64, 1}, initialstate(tigerPOMDP), tigerPOMDP) == [0.5, 0.5]
-        @test convert(Array{Float64, 1}, initialstate(babyPOMDP), babyPOMDP) == [1., 0.]
-        @test convert(Array{Float64, 1}, initialstate(minihallwayPOMDP), minihallwayPOMDP) == append!(fill(1/12, 12), zeros(1))
-    end
-
-    @testset "Finite Horizon POMDP tests" begin
-        @testset "Finite Horizon POMDP initial state convert tests" begin
-            tigerPOMDP = fixhorizon(TigerPOMDP(), 1)
-            babyPOMDP = fixhorizon(BabyPOMDP(), 1)
-            minihallwayPOMDP = fixhorizon(MiniHallway(), 1)
-
-            @test convert(Array{Float64, 1}, initialstate(tigerPOMDP), tigerPOMDP) == [0.5, 0.5, 0., 0.]
-            @test convert(Array{Float64, 1}, initialstate(babyPOMDP), babyPOMDP) == [1., 0., 0., 0.]
-            @test convert(Array{Float64, 1}, initialstate(minihallwayPOMDP), minihallwayPOMDP) == append!(fill(1/12, 12), zeros(14))
-        end
-
-        @testset "Finite Horizon POMDP other than initial stage distribution tests" begin
-            tigerPOMDP = fixhorizon(TigerPOMDP(), 2)
-            babyPOMDP = fixhorizon(BabyPOMDP(), 2)
-            minihallwayPOMDP = fixhorizon(MiniHallway(), 2)
-
-            tigerbelief = FiniteHorizonPOMDPs.InStageDistribution(FiniteHorizonPOMDPs.distribution(initialstate(tigerPOMDP)), 2)
-            babybelief = FiniteHorizonPOMDPs.InStageDistribution(FiniteHorizonPOMDPs.distribution(initialstate(babyPOMDP)), 2)
-            minihallwaybelief = FiniteHorizonPOMDPs.InStageDistribution(FiniteHorizonPOMDPs.distribution(initialstate(minihallwayPOMDP)), 2)
-
-            @test convert(Array{Float64, 1}, tigerbelief, tigerPOMDP) == [0., 0., 0.5, 0.5, 0., 0.]
-            @test convert(Array{Float64, 1}, babybelief, babyPOMDP) == [0., 0., 1., 0., 0., 0.]
-            @test convert(Array{Float64, 1}, minihallwaybelief, minihallwayPOMDP) == append!(append!(zeros(13), fill(1/12, 12)), zeros(14))
-        end
-    end
-end
 
 @testset "Comparison with SARSOP" begin
     pomdps = [TigerPOMDP(), BabyPOMDP(), MiniHallway()]
