@@ -35,21 +35,6 @@ end
 ==(a::AlphaVec, b::AlphaVec) = (a.alpha,a.action) == (b.alpha, b.action)
 Base.hash(a::AlphaVec, h::UInt) = hash(a.alpha, hash(a.action, h))
 
-convert(::Type{Array{Float64, 1}}, d::BoolDistribution, pomdp) = [1 - d.p, d.p]
-convert(::Type{Array{Float64, 1}}, d::DiscreteUniform, pomdp) = [pdf(d, stateindex(pomdp, s)) for s in states(pomdp)]
-convert(::Type{Array{Float64, 1}}, d::SparseCat, pomdp) = d.probs
-
-convert(::Type{Array{Float64, 1}}, d::InStageDistribution{DiscreteUniform}, m::FixedHorizonPOMDPWrapper) = vec([pdf(d, s) for s in states(m)])
-
-function convert(::Type{Array{Float64, 1}}, d::InStageDistribution{BoolDistribution}, m::FixedHorizonPOMDPWrapper)
-    if stage(d) == 1
-        append!([1 - d.d.p[1], d.d.p[1]], zeros(length(states(m)) - 2))
-    else
-        append!(append!(zeros((stage(d) - 1) * length(stage_states(m, 1))), [1 - d.d.p[1], d.d.p[1]]), zeros((horizon(m) - stage(d) + 1) * length(stage_states(m, 1))))
-    end
-end
-
-
 function _argmax(f, X)
     return X[argmax(map(f, X))]
 end
@@ -197,7 +182,7 @@ function solve(solver::PBVISolver, pomdp::POMDP)
     Γ = [fill(α_init, length(S)) for a in A]
 
     #init belief, if given distribution, convert to vector
-    init = convert(Array{Float64, 1}, initialstate(pomdp), pomdp)
+    init = initialize_belief(DiscreteUpdater(pomdp), initialstate(pomdp)).b
     B = [DiscreteBelief(pomdp, init)]
     Bs = Set([init])
 
