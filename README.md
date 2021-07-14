@@ -20,7 +20,7 @@ using PointBasedValueIteration
 using POMDPModels
 pomdp = TigerPOMDP() # initialize POMDP
 
-solver = PBVI() # set the solver
+solver = PBVISolver() # set the solver
 
 policy = solve(solver, pomdp) # solve the POMDP
 ```
