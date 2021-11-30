@@ -210,9 +210,9 @@ end
 
 @POMDPLinter.POMDP_require solve(solver::PBVISolver, pomdp::POMDP) begin
     P = typeof(pomdp)
-    S = state_type(P)
-    A = action_type(P)
-    O = observation_type(P)
+    S = statetype(P)
+    A = actiontype(P)
+    O = obstype(P)
     @req discount(::P) # discount factor
     @subreq ordered_states(pomdp)
     @subreq ordered_actions(pomdp)
