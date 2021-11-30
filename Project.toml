@@ -1,7 +1,7 @@
 name = "PointBasedValueIteration"
 uuid = "835c131e-675f-4498-8e2c-c054c75556e1"
 authors = ["Dominik Straub <straub@psychologie.tu-darmstadt.de> and Tomáš Omasta <tomom@email.cz>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 BeliefUpdaters = "8bb6e9a1-7d73-552c-a44a-e5dc5634aac4"
