@@ -1,27 +1,23 @@
 name = "PointBasedValueIteration"
 uuid = "835c131e-675f-4498-8e2c-c054c75556e1"
 authors = ["Dominik Straub <straub@psychologie.tu-darmstadt.de> and Tomáš Omasta <tomom@email.cz>"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
-BeliefUpdaters = "8bb6e9a1-7d73-552c-a44a-e5dc5634aac4"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 FiniteHorizonPOMDPs = "8a13bbfe-798e-11e9-2f1c-eba9ee5ef093"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 POMDPLinter = "f3bd98c0-eb40-45e2-9eb1-f2763262d755"
-POMDPModelTools = "08074719-1b2a-587c-a292-00f91cc44415"
-POMDPPolicies = "182e52fb-cfd0-5e46-8c26-fd0667c990f4"
+POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
 
 [compat]
-BeliefUpdaters = "0.2"
 Distributions = "0.24, 0.25"
 FiniteHorizonPOMDPs = "0.3"
 POMDPLinter = "0.1"
-POMDPModelTools = "0.3.2"
-POMDPPolicies = "0.3, 0.4"
 POMDPs = "0.9"
 julia = "1.1"
+POMDPTools = "0.1"
 
 [extras]
 POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
@@ -30,4 +26,4 @@ SARSOP = "cef570c6-3a94-5604-96b7-1a5e143043f2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["SARSOP", "Test", "POMDPModels", "POMDPSimulators"]
+test = ["SARSOP", "Test", "POMDPModels"]

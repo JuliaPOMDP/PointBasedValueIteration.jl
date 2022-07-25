@@ -25,7 +25,7 @@ solver = PBVISolver() # set the solver
 policy = solve(solver, pomdp) # solve the POMDP
 ```
 
-The function `solve` returns an `AlphaVectorPolicy` as defined in [POMDPPolicies](https://github.com/JuliaPOMDP/POMDPPolicies.jl).
+The function `solve` returns an `AlphaVectorPolicy` as defined in [POMDPTools](https://juliapomdp.github.io/POMDPs.jl/latest/POMDPTools/policies/).
 
 ## References
 - Pineau, J., Gordon, G., & Thrun, S. (2003, August). Point-based value iteration: An anytime algorithm for POMDPs. In IJCAI (Vol. 3, pp. 1025-1032).

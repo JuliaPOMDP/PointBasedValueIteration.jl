@@ -2,9 +2,7 @@ using Test
 using POMDPModels
 using POMDPs
 using SARSOP
-using BeliefUpdaters
-using POMDPModelTools
-using POMDPSimulators
+using POMDPTools
 using FiniteHorizonPOMDPs
 using PointBasedValueIteration
 
