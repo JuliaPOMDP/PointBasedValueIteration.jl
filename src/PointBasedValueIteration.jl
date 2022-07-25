@@ -1,10 +1,8 @@
 module PointBasedValueIteration
 
 using POMDPs
-using POMDPPolicies
-using POMDPModelTools
+using POMDPTools
 using POMDPLinter
-using BeliefUpdaters
 using LinearAlgebra
 using Distributions
 using FiniteHorizonPOMDPs
