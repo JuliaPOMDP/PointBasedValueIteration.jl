@@ -1,8 +1,7 @@
 # Point-based value iteration
 
-[![Build status](https://travis-ci.com/JuliaPOMDP/PointBasedValueIteration.jl.svg?branch=master)](https://travis-ci.com/github/JuliaPOMDP/PointBasedValueIteration.jl)
-[![Coverage Status](https://coveralls.io/repos/github/JuliaPOMDP/PointBasedValueIteration.jl/badge.svg?branch=master)](https://coveralls.io/github/JuliaPOMDP/PointBasedValueIteration.jl?branch=master)
-[![codecov](https://codecov.io/gh/JuliaPOMDP/PointBasedValueIteration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaPOMDP/PointBasedValueIteration.jl)
+[![CI](https://github.com/JuliaPOMDP/PointBasedValueIteration.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/JuliaPOMDP/PointBasedValueIteration.jl/actions/workflows/CI.yml)
+[![codecov.io](http://codecov.io/github/JuliaPOMDP/PointBasedValueIteration.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaPOMDP/PointBasedValueIteration.jl?branch=master)
 
 
 Point-based value iteration solver ([Pineau et al., 2003](http://www.fore.robot.cc/papers/Pineau03a.pdf), [Shani et al., 2012](https://link.springer.com/content/pdf/10.1007/s10458-012-9200-2.pdf)) for the [POMDPs.jl](https://github.com/JuliaPOMDP/POMDPs.jl) framework.
