@@ -25,3 +25,5 @@ Manifest.toml
 
 *.pomdpx
 *.out
+
+.vscode
