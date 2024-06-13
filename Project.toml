@@ -15,9 +15,9 @@ POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
 Distributions = "0.24, 0.25"
 FiniteHorizonPOMDPs = "0.3, 0.4"
 POMDPLinter = "0.1"
-POMDPs = "0.9"
-julia = "1.1"
 POMDPTools = "0.1"
+POMDPs = "0.9, 1"
+julia = "1.1"
 
 [extras]
 POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
